@@ -687,8 +687,28 @@
       text('戻ってもHP・SPは減りません',551,'#c1d8cc',14);c.restore()
     }
     function statusLayout(){const v=currentView(),cursorX=v.x+(cursor.x-v.startX)*v.cell+v.cell/2,anchor=['action','forecast'].includes(state)?cursorX:lastInput==='pointer'?pointerX:cursorX;const width=state==='forecast'?400:336;return{x:anchor<W/2?W-width-22:22,y:68,w:width,h:580}}
+    function battleClearCondition(){
+      const limit=STAGES[currentStage].turns;
+      switch(currentStage){
+        case 1:return `巣を${limit}ターン守る、または増援もふくめて敵をすべてたおす`;
+        case 2:return `${limit}ターン以内に、湿地王もふくめて敵をすべてたおす`;
+        case 3:return `${limit}ターン以内に、花守りを生かしたまま敵をすべてたおす`;
+        case 4:return `${limit}ターン以内に、味方で封印A・Bに乗り、そのあと味方1体が門に乗る`;
+        case 5:return `${limit}ターン以内に、赤軍と紫軍のリーダーを両方たおす`;
+        case 6:return `${limit}ターン以内に、甲虫王をたおす（護衛は残っていてもOK）`;
+        case 7:return `${limit}ターン以内に、味方で種3個を集め、そのあと味方1体が脱出地点に乗る`;
+        case 8:return `${limit}ターン以内に、カナヘビ隊長が出口に着く前にたおす`;
+      }
+    }
+    function drawBattleClearCondition(){
+      c.save();c.fillStyle='#061917f5';roundRectPath(466,44,796,30,9);c.fill();
+      c.strokeStyle='#ffe47a88';c.lineWidth=1;c.stroke();c.textAlign='left';
+      c.fillStyle='#ffe47a';c.font='1000 14px sans-serif';gameText('クリア条件',478,65);
+      c.fillStyle='#fff';c.font='800 14px sans-serif';gameText(battleClearCondition(),594,65,656);c.restore();
+    }
     function drawHud(){
       if(trainingActive){drawTrainingHud();return}
+      drawBattleClearCondition();
       const cfg=STAGES[currentStage],boss=living('enemy').find(u=>u.boss),rescue=units.find(u=>u.rescueTarget&&u.alive),captured=objectivePoints.filter(p=>p.captured).length,redLeader=units.find(u=>u.id==='redLeader'),wildLeader=units.find(u=>u.id==='wildLeader'),runner=units.find(u=>u.id==='runner8'),status=cfg.base?`巣の耐久 ${baseHP}/${BASE_MAX_HP}　増援 ${reinforcementsArrived?'出現済':'警戒中'}`:currentStage===2?`残敵 ${living('enemy').length}体　${boss?'湿地王HP '+boss.hp+'/'+unitMaxHP(boss):'湿地王 撃破済'}`:currentStage===3?`残敵 ${living('enemy').length}体　花守りHP ${rescue?rescue.hp+'/'+unitMaxHP(rescue):'0'}`:currentStage===4?`封印 ${captured}/2　門 ${captured===2?'解放':'封鎖'}　残敵 ${living('enemy').length}体`:currentStage===5?`赤将 ${redLeader?.alive?redLeader.hp:'撃破'}　紫将 ${wildLeader?.alive?wildLeader.hp:'撃破'}　残兵 ${living('enemy').length+living('wild').length}体`:currentStage===6?(boss?`甲虫王HP ${boss.hp}/${unitMaxHP(boss)}　形態 ${boss.bossPhase||1}/3　護衛 ${Math.max(0,living('enemy').length-1)}体`:'古木の甲虫王 撃破済'):currentStage===8?(runner?.alive?`カナヘビHP ${runner.hp}/${unitMaxHP(runner)}　出口まで ${Math.abs(runner.x-objectiveGoal.x)+Math.abs(runner.y-objectiveGoal.y)}マス　護衛 ${Math.max(0,living('enemy').length-1)}体`:'カナヘビ隊長を確保'):`夜露の種 ${captured}/3　脱出 ${captured===3?'可能':'準備中'}　追撃 ${seedHuntersArrived?'出現':'警戒'}`,phase=state==='wild'?'WILD PHASE':state==='enemy'?'ENEMY PHASE':'PLAYER PHASE',phaseColor=state==='wild'?'#cc83ff':state==='enemy'?'#ff8b79':'#6ed8ff';c.fillStyle='#061917e6';roundRectPath(18,12,430,50,14);c.fill();c.strokeStyle=phaseColor;c.lineWidth=2;c.stroke();c.fillStyle=phaseColor;c.font='1000 12px sans-serif';c.textAlign='left';gameText(phase,34,33);c.fillStyle='#fff';c.font='1000 20px sans-serif';gameText(`TURN ${Math.min(turn,cfg.turns)}/${cfg.turns}`,34,54);c.fillStyle='#ffe47a';c.font='1000 12px sans-serif';gameText(`MISSION　${cfg.name}`,178,33);c.fillStyle=cfg.base&&baseHP<=1?'#ff8b82':'#d9f3df';c.font='800 12px sans-serif';gameText(status,178,52);
       c.fillStyle='#071b18e8';roundRectPath(350,665,580,42,13);c.fill();c.strokeStyle='#9bcaae55';c.lineWidth=1.5;c.stroke();c.fillStyle=performance.now()<messageUntil?'#ffe272':'#d4ebdc';c.font='800 13px sans-serif';c.textAlign='center';gameText(message,640,690);c.fillStyle='#b8d2c3';c.font='700 10px sans-serif';c.textAlign='left';if(gameOptions.showHints)gameText('方向キー：移動　Enter/A：決定　M/Y：全体　R/RB：危険範囲　Q：音　O：設定　Esc/B：戻る',24,714)
     }
