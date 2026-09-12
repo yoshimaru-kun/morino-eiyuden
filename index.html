@@ -961,7 +961,7 @@
       const ay=p.y+382,bw=(p.w-44)/2,leftX=p.x+18,rightX=p.x+26+bw;
       if(state==='action'){
         c.fillStyle=actionIndex===2?'#efb7ff':'#fff';c.font='1000 14px sans-serif';
-        const abilityRemaining=abilityUsesRemaining(),hints=['通常攻撃',`習得 ${learnedSpecialMoves(selected).length}/5`,trainingActive?s.ability?.name||'固有能力':`残り ${abilityRemaining}/${ABILITY_STAGE_LIMIT}`,'行動を終了'];actions.forEach((a,i)=>{const x=i%2?rightX:leftX,y=ay+14+Math.floor(i/2)*64,active=i===actionIndex,unavailable=i===2&&!trainingActive&&!abilityRemaining;c.fillStyle=active?'#ffe068':unavailable?'#302d36':i===1?'#49395e':i===2?'#493252':i===3?'#27483e':'#23443b';roundRectPath(x,y,bw,56,12);c.fill();c.strokeStyle=active?'#fff4ad':unavailable?'#665f6c':'#91c7ae';c.lineWidth=active?3:1.5;c.stroke();c.fillStyle=active?'#173128':unavailable?'#9d989f':'#fff';c.font='1000 15px sans-serif';c.textAlign='center';gameText(`${actionIcons[i]} ${a}`,x+bw/2,y+24,bw-12);c.font='800 10px sans-serif';gameText(hints[i],x+bw/2,y+43,bw-12)});
+        const abilityRemaining=abilityUsesRemaining(selected),hints=['通常攻撃',`習得 ${learnedSpecialMoves(selected).length}/5`,trainingActive?s.ability?.name||'固有能力':`この仲間 残り ${abilityRemaining}/${ABILITY_STAGE_LIMIT}`,'行動を終了'];actions.forEach((a,i)=>{const x=i%2?rightX:leftX,y=ay+14+Math.floor(i/2)*64,active=i===actionIndex,unavailable=i===2&&!trainingActive&&!abilityRemaining;c.fillStyle=active?'#ffe068':unavailable?'#302d36':i===1?'#49395e':i===2?'#493252':i===3?'#27483e':'#23443b';roundRectPath(x,y,bw,56,12);c.fill();c.strokeStyle=active?'#fff4ad':unavailable?'#665f6c':'#91c7ae';c.lineWidth=active?3:1.5;c.stroke();c.fillStyle=active?'#173128':unavailable?'#9d989f':'#fff';c.font='1000 15px sans-serif';c.textAlign='center';gameText(`${actionIcons[i]} ${a}`,x+bw/2,y+24,bw-12);c.font='800 10px sans-serif';gameText(hints[i],x+bw/2,y+43,bw-12)});
         const by=ay+142;c.fillStyle='#173a33';roundRectPath(p.x+18,by,p.w-36,42,11);c.fill();c.strokeStyle='#9ed7b6';c.lineWidth=2;c.stroke();c.fillStyle='#ecfff2';c.font='900 13px sans-serif';c.textAlign='center';gameText('↩ 移動場所を選び直す　B / Esc',p.x+p.w/2,by+27,p.w-52);c.textAlign='left'
       }else if(state==='specialSelect'){
         const moves=learnedSpecialMoves(selected);moves.forEach((move,i)=>{const y=ay+4+i*36,active=i===specialIndex,usable=selected.sp>=move.cost;c.fillStyle=active?'#ffe068':usable?'#49395e':'#302d36';roundRectPath(p.x+18,y,p.w-36,33,9);c.fill();c.strokeStyle=active?'#fff4ad':usable?'#a986c7':'#665f6c';c.lineWidth=active?2.5:1;c.stroke();c.textAlign='left';c.fillStyle=active?'#173128':usable?'#fff':'#9d989f';c.font='1000 11px sans-serif';gameText(`Lv.${move.level} ${move.name}`,p.x+28,y+13,p.w-150);c.font='800 8px sans-serif';gameText(move.description,p.x+28,y+27,p.w-56);c.textAlign='right';c.font='1000 10px sans-serif';gameText(`${SPECIAL_TYPE_LABEL[move.type]} SP${move.cost}`,p.x+p.w-28,y+13)});c.textAlign='left'
@@ -992,9 +992,9 @@
     function challengeUnlocked(){return [1,2,3,4,5,6,7,8].every(n=>progress.clearedStages.includes(n))}
     function restoreCampaign(){for(const n of Object.keys(campaignStages))STAGES[n]=JSON.parse(JSON.stringify(campaignStages[n]))}
     function bonusText(index){return ['３体ともさいごまで元気でクリア','とくいな地形で３回こうどうしてクリア','固有技を２回つかってクリア'][index%3]}
-    function makeBattlePlan(stage,tier=0){const a=adventureData(),wins=a.wins[stage]||0;return {stage,tier,difficulty:a.difficulty,variant:wins%3,bonus:wins%3,habitat:0,skills:0}}
+    function makeBattlePlan(stage,tier=0){const a=adventureData(),wins=a.wins[stage]||0;return {stage,tier,difficulty:a.difficulty,variant:wins%3,bonus:wins%3,habitat:0,skills:0,abilityUses:{}}}
     function configureBattle(plan){
-      restoreCampaign();battlePlan={...plan};currentStage=plan.stage;
+      restoreCampaign();battlePlan={...plan,skills:adventureInteger(plan.skills,0,ABILITY_STAGE_LIMIT*3),abilityUses:normalizeAbilityUses(plan.abilityUses)};currentStage=plan.stage;
       const cfg=STAGES[currentStage];
       if(plan.tier){cfg.name=`森のうでだめし ${plan.tier} / 10`;cfg.mission='甲虫王をたおそう。勝つと出撃した3体が経験値を受け取ります。';cfg.turns=18;cfg.recruits=[];cfg.enemies.forEach(u=>{if(u.boss)u.name=`うでだめしの王 Lv.${plan.tier*5}`});}
       else if(plan.variant){
@@ -1018,34 +1018,36 @@
     selectStage=function(n){if(!stageUnlocked(n))return adventureBase.selectStage(n);if(!allowNewBattle())return;configureBattle(makeBattlePlan(n));return adventureBase.selectStage(n)};
     missionLevel=function(u,stage=currentStage){return battlePlan?.tier&&!u.training?battlePlan.tier*5:adventureBase.missionLevel(u,stage)};
     missionLevelText=function(stage){return battlePlan?.tier&&stage===6?`うでだめし ${battlePlan.tier}/10 ／ 敵 Lv.${battlePlan.tier*5}`:adventureBase.missionLevelText(stage)};
-    reset=function(){if(!battlePlan||battlePlan.stage!==currentStage)configureBattle(makeBattlePlan(currentStage));battlePlan.habitat=0;battlePlan.skills=0;vaultOrigin=null;adventureData().suspend=null;adventureBase.reset();setMessage(STAGES[currentStage].mission,4000);saveProgress()};
+    reset=function(){if(!battlePlan||battlePlan.stage!==currentStage)configureBattle(makeBattlePlan(currentStage));battlePlan.habitat=0;battlePlan.skills=0;battlePlan.abilityUses={};vaultOrigin=null;adventureData().suspend=null;adventureBase.reset();setMessage(STAGES[currentStage].mission,4000);saveProgress()};
     renderStageSelect=function(){restoreCampaign();battlePlan=null;adventureBase.renderStageSelect();for(const card of $('stageCards').children){const n=Number(card.dataset.stage),pool=STAGE_LOOT[n],p=document.createElement('p');p.className='adventure-note stage-reward-note';p.textContent=stageUnlocked(n)?`限定報酬：${pool.characters.map(k=>species[k].short).join('・')} ／ ${RELICS[pool.relic].name}　｜　クリアEXP +${STAGE_CLEAR_XP[n]}（出撃3体のみ）　｜　おまけ：${bonusText(adventureData().wins[n])}`:'ひらくと、この作戦だけの報酬候補が見られます';card.appendChild(p)}};
 
     // The two active skills supplement the existing guard/buff. Gecko's extra
     // movement uses the existing move selection UI, and can be cancelled freely.
     const ABILITY_STAGE_LIMIT=3,traitDescriptions={beetle:'となりの敵を１マスおす（ボス・ふさがった場所は不可）＋ダメージ半減',spider:'２マス以内の敵を、つぎの敵ターンだけ移動１にする＋攻撃・回避アップ（ゲームの技）',gecko:'木の近くで２マス以内へ移動しなおす＋回避アップ。決定する前はキャンセルできます'};
-    function abilityUsesRemaining(){return trainingActive?ABILITY_STAGE_LIMIT:Math.max(0,ABILITY_STAGE_LIMIT-(battlePlan?.skills||0))}
+    function normalizeAbilityUses(value){const uses={};if(value&&typeof value==='object'&&!Array.isArray(value))for(const kind of ALLY_KINDS){const count=adventureInteger(value[kind],0,ABILITY_STAGE_LIMIT);if(count)uses[kind]=count}return uses}
+    function abilityUsesRemaining(u=selected){if(trainingActive)return ABILITY_STAGE_LIMIT;if(!u?.kind)return 0;return Math.max(0,ABILITY_STAGE_LIMIT-(battlePlan?.abilityUses?.[u.kind]||0))}
+    function recordAbilityUse(u){if(!battlePlan||!u?.kind)return;battlePlan.skills=Math.min(ABILITY_STAGE_LIMIT*3,(battlePlan.skills||0)+1);battlePlan.abilityUses=normalizeAbilityUses(battlePlan.abilityUses);battlePlan.abilityUses[u.kind]=Math.min(ABILITY_STAGE_LIMIT,(battlePlan.abilityUses[u.kind]||0)+1)}
     abilityDescription=function(u){return !u.training&&traitDescriptions[u.kind]||adventureBase.abilityDescription(u)};
     function pushNeighbors(u){let count=0;for(const enemy of hostilesFor(u)){if(dist(u,enemy)!==1||enemy.boss||enemy.leader)continue;const x=enemy.x+(enemy.x-u.x),y=enemy.y+(enemy.y-u.y);if(x<0||x>=COLS||y<0||y>=ROWS||unitAt(x,y)||moveCost(enemy,x,y)>=99||STAGES[currentStage].base&&x===BASE.x&&y===BASE.y)continue;enemy.x=x;enemy.y=y;count++}return count}
     function vaultCells(u){const out=new Map(),wood=t=>['forest','log','branch','leaf'].includes(t);for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){const d=Math.abs(u.x-x)+Math.abs(u.y-y);if(d<1||d>2||unitAt(x,y)||moveCost(u,x,y)>=99)continue;if(wood(terrain[u.y][u.x])||wood(terrain[y][x]))out.set(key(x,y),d)}return out}
     useAbility=async function(){
       if(!selected||locked||selected.acted)return;
       if(trainingActive)return adventureBase.useAbility();
-      if(!abilityUsesRemaining()){setMessage(`固有技は1ステージ${ABILITY_STAGE_LIMIT}回までです。ほかの行動を選ぼう`,2600);tone(150,.08);return}
+      if(!abilityUsesRemaining(selected)){setMessage(`このキャラクターの固有技は1ステージ${ABILITY_STAGE_LIMIT}回までです。ほかの行動を選ぼう`,2600);tone(150,.08);return}
       const u=selected;
       if(u.kind==='gecko'){const cells=vaultCells(u);if(!cells.size){setMessage('近くに木をつたって行ける場所がありません。ほかの行動を選べます');return}vaultOrigin={x:u.x,y:u.y};reachable=cells;state='move';setMessage('かべ走り：光るマスへ移動。B / Esc で行動メニューへもどる',4000);return}
       const ability=species[u.kind].ability,targets=ability.range?abilityTargets(u).filter(v=>u.kind!=='ant'||v!==u):[u],result=applyAbilityEffects(u,targets);let extra=0;
       if(u.kind==='beetle')extra=pushNeighbors(u);
       if(u.kind==='spider')for(const enemy of hostilesFor(u).filter(e=>dist(u,e)<=2&&!e.webbed)){enemy.webbed=true;extra++}
       if(!result.count&&!extra){setMessage('いまは技の効果がありません。ほかの行動を選べます');return}
-      if(battlePlan)battlePlan.skills++;
+      recordAbilityUse(u);
       const xp=supportExperience(result)+(extra?8:0);if(xp)gainXp(u,xp);
       setMessage(abilityResultText(u,result)+(extra?` ／ ${extra}体に${u.kind==='beetle'?'おしだし':'いと止め'}！`:''),2600);
       locked=true;sfx(['bee','frog','ladybug','swallowtail'].includes(u.kind)?'heal':'buff');await sleep(850);locked=false;finishPlayerUnit();
     };
     findReachable=function(u){if(!u.webbed)return adventureBase.findReachable(u);return new Map([...adventureBase.findReachable(u)].filter(([,cost])=>cost<=1))};
     movementPath=function(u,x,y){return vaultOrigin&&u===selected&&reachable.has(key(x,y))?[{...vaultOrigin},{x,y}]:adventureBase.movementPath(u,x,y)};
-    chooseMove=function(){if(!vaultOrigin)return adventureBase.chooseMove();if(!selected||!reachable.has(key(cursor.x,cursor.y))){setMessage('光るマスを選ぼう。B / Esc でもどれます');return}selected.x=cursor.x;selected.y=cursor.y;selected.buffEvade=Math.max(selected.buffEvade||0,30);vaultOrigin=null;if(battlePlan)battlePlan.skills++;gainXp(selected,8);finishPlayerUnit()};
+    chooseMove=function(){if(!vaultOrigin)return adventureBase.chooseMove();if(!selected||!reachable.has(key(cursor.x,cursor.y))){setMessage('光るマスを選ぼう。B / Esc でもどれます');return}selected.x=cursor.x;selected.y=cursor.y;selected.buffEvade=Math.max(selected.buffEvade||0,30);vaultOrigin=null;recordAbilityUse(selected);gainXp(selected,8);finishPlayerUnit()};
     cancel=function(){if(vaultOrigin&&!locked){selected.x=vaultOrigin.x;selected.y=vaultOrigin.y;vaultOrigin=null;state='action';reachable=findReachable(selected);focusOn(selected);setMessage('かべ走りをキャンセル。行動を選びなおせます');return}return adventureBase.cancel()};
     function recordHabitat(u){if(!trainingActive&&u?.team==='player'&&battlePlan&&u.habitatTurn!==turn){u.habitatTurn=turn;if(terrainEffect(u).grade>0)battlePlan.habitat++}}
     performBattle=async function(a,d,special,ai){if(!ai)recordHabitat(a);return adventureBase.performBattle(a,d,special,ai)};
@@ -1108,7 +1110,7 @@
       if(roster.length!==3||!list.some(u=>u.team==='player'&&u.alive&&!u.acted)||['p1','p2','p3'].some(id=>!list.some(u=>u.id===id&&u.team==='player')))return null;
       const stage=campaignStages[s.plan.stage];for(const initial of [...stage.enemies,...(stage.wild||[]),...(stage.npcs||[])])if(!list.some(u=>u.id===initial.id&&u.kind===initial.kind&&u.team===initial.team&&!!u.rescueTarget===!!initial.rescueTarget&&!!u.runner===!!initial.runner))return null;
       const points=campaignStages[s.plan.stage].objective?.points||[];
-      return {version:1,plan:{stage:s.plan.stage,tier:s.plan.tier,difficulty:s.plan.difficulty==='easy'?'easy':'normal',variant:adventureInteger(s.plan.variant,0,2),bonus:adventureInteger(s.plan.bonus,0,2),habitat:adventureInteger(s.plan.habitat,0,10000),skills:adventureInteger(s.plan.skills,0,ABILITY_STAGE_LIMIT)},units:list,turn:s.turn,baseHP:adventureInteger(s.baseHP,0,BASE_MAX_HP),captured:points.map((_,i)=>s.captured?.[i]===true),reinforcementsArrived:s.reinforcementsArrived===true,kingReinforcementsArrived:s.kingReinforcementsArrived===true,seedHuntersArrived:s.seedHuntersArrived===true};
+      return {version:1,plan:{stage:s.plan.stage,tier:s.plan.tier,difficulty:s.plan.difficulty==='easy'?'easy':'normal',variant:adventureInteger(s.plan.variant,0,2),bonus:adventureInteger(s.plan.bonus,0,2),habitat:adventureInteger(s.plan.habitat,0,10000),skills:adventureInteger(s.plan.skills,0,ABILITY_STAGE_LIMIT*3),abilityUses:normalizeAbilityUses(s.plan.abilityUses)},units:list,turn:s.turn,baseHP:adventureInteger(s.baseHP,0,BASE_MAX_HP),captured:points.map((_,i)=>s.captured?.[i]===true),reinforcementsArrived:s.reinforcementsArrived===true,kingReinforcementsArrived:s.kingReinforcementsArrived===true,seedHuntersArrived:s.seedHuntersArrived===true};
     }
     function canSuspend(){return !trainingActive&&!tutorialActive&&!locked&&!adventureBusy&&!saveConflict&&!!battlePlan&&['select','move','action','specialSelect','attack','forecast'].includes(state)}
     async function suspendBattle(){
