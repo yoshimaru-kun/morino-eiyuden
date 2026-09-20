@@ -1796,16 +1796,27 @@
     handle=function(code){if(state==='baseMenu'){const buttons=baseMenuButtons();if(['ArrowLeft','ArrowUp'].includes(code))baseMenuIndex=(baseMenuIndex+buttons.length-1)%buttons.length;if(['ArrowRight','ArrowDown'].includes(code))baseMenuIndex=(baseMenuIndex+1)%buttons.length;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(code)){updateBaseMenuFocus();tone(390,.035);return}if(['Enter','Space','Start'].includes(code)){buttons[baseMenuIndex]?.click();return}if(['Escape','Backspace'].includes(code)){showTitleFromBase();return}}if(state==='itemInventoryMenu'){if(['Escape','Backspace','Enter','Space','Start'].includes(code))closeItemInventory();return}if(state==='saveMenu'){if(['Escape','Backspace'].includes(code))closeSaveMenu();return}return baseNavigatorHandle(code)};
     // BASE NAVIGATOR END
 
-    // Mouse back uses the same cancellation route as Escape, once per gesture.
+    // Mouse back follows the visible screen hierarchy everywhere, once per gesture.
     let mouseBackGesture=false,mouseBackHandled=false;
-    function battleBackAvailable(){return !optionsOpen&&(state==='stageSelect'||['move','action','specialSelect','attack','forecast','battleItemMenu'].includes(state)||state==='select'&&!!inspectedEnemy)}
+    function performMouseBack(){
+      if(optionsOpen){handleOptions('Escape');return}
+      if(locked||adventureBusy)return;
+      if(state==='title')return;
+      if(state==='intermission'){openIntermission();return}
+      if(state==='dialogue'){openSortie();return}
+      if(state==='result'){(pendingRecruit.length?openRecruit:openIntermission)();return}
+      if(state==='recruit'){$('recruit').classList.add('hidden');$('result').classList.remove('hidden');state='result';updateResultFocus();return}
+      if(state==='recruited'){openIntermission();return}
+      if(state==='trainingResult'){leaveTraining(true);return}
+      if(state==='select'&&!selected&&!inspectedEnemy){openOptions();return}
+      handle('Escape')
+    }
     function mouseBack(e){
       if(e.button!==3)return;
-      if(!mouseBackGesture&&!battleBackAvailable())return;
       e.preventDefault();e.stopImmediatePropagation();
       if(e.type==='pointerdown'||e.type==='mousedown'){mouseBackGesture=true;mouseBackHandled=false}
       else if(e.type==='mouseup'||e.type==='auxclick'){
-        if(!mouseBackHandled){mouseBackHandled=true;if(!locked&&!adventureBusy)handle('Escape')}
+        if(!mouseBackHandled){mouseBackHandled=true;performMouseBack()}
         if(e.type==='auxclick'){mouseBackGesture=false;mouseBackHandled=false}
       }
     }
